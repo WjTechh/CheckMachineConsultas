@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Inventário - Itech</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --bg: #f8f9fa;
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            padding: 40px 20px; 
+            background-color: var(--bg);
+            color: #333;
+        }
+
+        .container { 
+            max-width: 1100px; 
+            margin: auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
+        }
+
+        h1 { color: var(--primary); margin-bottom: 5px; }
+        .subtitle { color: #666; margin-bottom: 30px; }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        select, input { 
+            padding: 12px; 
+            border-radius: 6px; 
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border-radius: 6px;
+            border: none;
+            background-color: var(--accent);
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+        
+        .btn-add { background-color: #27ae60; }
+
+        .table-container { overflow-x: auto; margin-top: 20px; }
+
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+
+        th, td { 
+            padding: 15px; 
+            text-align: left; 
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+
+        th { 
+            background-color: #fcfcfc; 
+            color: var(--primary); 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tr:hover { background-color: #f9f9f9; }
+
+        .admin-section {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Bem-vindo!</h1>
+    <p class="subtitle">Qual empresa você deseja consultar hoje?</p>
+    
+    <div class="controls">
+        <select id="empresaSelect">
+            <option value="">Selecione uma empresa...</option>
+            <option value="Palmas">Palmas</option>
+            <option value="3RI">3RI</option>
+            <option value="12Notas">12Notas</option>
+        </select>
+        <button onclick="consultarDados()">Consultar Dados</button>
+    </div>
+
+    <div class="table-container">
+        <table id="tabelaExibicao" style="display:none;">
+            <thead><tr id="tableHeader"></tr></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <div class="admin-section">
+        <h3>Nova Unidade</h3>
+        <p class="subtitle" style="font-size: 13px;">Isso criará uma nova tabela no banco de dados automaticamente.</p>
+        <div class="controls">
+            <input type="text" id="novaEmpresaInput" placeholder="Nome (Ex: Unidade_Salvador)">
+            <button class="btn-add" onclick="criarNovaEmpresa()">Criar e Adicionar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configurações do Supabase (Substitua pelos seus dados)
+    const SUPABASE_URL = "https://mnicdhzltjztpjwnratq.supabase.com";
+    const SUPABASE_KEY = "sb_publishable_Tabv1Qrj7FWf-bZSW_o6Ww_iNrb3C4h";
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function consultarDados() {
+        const tabela = document.getElementById('empresaSelect').value;
+        if (!tabela) return alert("Por favor, selecione uma empresa.");
+
+        const { data, error } = await _supabase.from(tabela).select('*');
+
+        if (error) {
+            console.error(error);
+            alert("Erro na consulta: " + error.message);
+            return;
+        }
+
+        renderizarTabela(data);
+    }
+
+    function renderizarTabela(data) {
+        const header = document.getElementById('tableHeader');
+        const body = document.getElementById('tableBody');
+        const table = document.getElementById('tabelaExibicao');
+
+        header.innerHTML = '';
+        body.innerHTML = '';
+
+        if (!data || data.length === 0) {
+            alert("Nenhum dado cadastrado nesta empresa.");
+            table.style.display = 'none';
+            return;
+        }
+
+        // Filtra colunas: Remove "id", "created_at" (se houver) e "Familia"
+        const colunasOcultas = ['familia', 'id', 'created_at'];
+        const colunasAtivas = Object.keys(data[0]).filter(key => 
+            !colunasOcultas.includes(key.toLowerCase())
+        );
+
+        // Cria Cabeçalhos
+        colunasAtivas.forEach(col => {
+            const th = document.createElement('th');
+            th.innerText = col.replace(/_/g, ' ');
+            header.appendChild(th);
+        });
+
+        // Preenche Dados
+        data.forEach(linha => {
+            const tr = document.createElement('tr');
+            colunasAtivas.forEach(col => {
+                const td = document.createElement('td');
+                td.innerText = linha[col] !== null ? linha[col] : '-';
+                tr.appendChild(td);
+            });
+            body.appendChild(tr);
+        });
+
+        table.style.display = 'table';
+    }
+
+    async function criarNovaEmpresa() {
+        const nome = document.getElementById('novaEmpresaInput').value.trim();
+        if (!nome) return alert("Digite o nome da nova empresa.");
+        
+        // Remove espaços e caracteres especiais para evitar erro no SQL
+        const nomeLimpo = nome.replace(/\s+/g, '_');
+
+        // Chama a função RPC que você deve criar no Supabase SQL Editor
+        const { error } = await _supabase.rpc('create_new_company_table', { table_name: nomeLimpo });
+
+        if (error) {
+            alert("Erro ao criar tabela no banco: " + error.message);
+        } else {
+            alert("Sucesso! Tabela '" + nomeLimpo + "' pronta para uso.");
+            
+            // Adiciona ao menu sem precisar atualizar a página
+            const select = document.getElementById('empresaSelect');
+            const opt = document.createElement('option');
+            opt.value = nomeLimpo;
+            opt.innerHTML = nomeLimpo;
+            select.appendChild(opt);
+            
+            document.getElementById('novaEmpresaInput').value = '';
+        }
+    }
+</script>
+
+</body>
+</html>
